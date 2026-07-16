@@ -1,0 +1,1803 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#008248">
+  <title>Żabka — Hot Dog w Górę!</title>
+  <style>
+    :root {
+      --green: #008248;
+      --green-light: #16a765;
+      --green-dark: #052b1b;
+      --yellow: #ffd100;
+      --cream: #fff4c2;
+      --red: #d83a27;
+      --sky: #8fd7c0;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
+      background: var(--green-dark);
+    }
+
+    body {
+      display: grid;
+      min-height: 100dvh;
+      place-items: center;
+      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+      font-family: "Courier New", Courier, monospace;
+      background:
+        linear-gradient(90deg, rgba(255, 209, 0, 0.06) 1px, transparent 1px) 0 0 / 22px 22px,
+        linear-gradient(rgba(255, 209, 0, 0.06) 1px, transparent 1px) 0 0 / 22px 22px,
+        var(--green-dark);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .stage {
+      position: relative;
+      isolation: isolate;
+      width: min(1600px, calc(100vw - 24px), calc((100dvh - 24px) * 16 / 9));
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border: clamp(6px, 0.7vw, 12px) solid var(--yellow);
+      outline: clamp(4px, 0.42vw, 8px) solid var(--green);
+      background: var(--sky);
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.42);
+      cursor: pointer;
+      transform-origin: 50% 50%;
+      transition: transform 260ms steps(4, end);
+      touch-action: none;
+    }
+
+    .stage.flipped {
+      transform: rotate(180deg);
+    }
+
+    .stage::after {
+      position: absolute;
+      z-index: 95;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      background: repeating-linear-gradient(0deg, rgba(5, 43, 27, 0.075) 0 1px, transparent 1px 4px);
+      mix-blend-mode: multiply;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      outline: none;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      touch-action: none;
+    }
+
+    #game-canvas:focus-visible {
+      outline: 6px dashed var(--white);
+      outline-offset: -12px;
+    }
+
+    .hud {
+      position: absolute;
+      z-index: 50;
+      top: clamp(10px, 1.2vw, 20px);
+      left: clamp(10px, 1.2vw, 20px);
+      right: clamp(10px, 1.2vw, 20px);
+      display: grid;
+      grid-template-columns: 1fr 1.15fr 1fr 1.18fr;
+      gap: clamp(6px, 0.8vw, 13px);
+      pointer-events: none;
+    }
+
+    .hud-box {
+      min-width: 0;
+      padding: clamp(5px, 0.55vw, 9px) clamp(6px, 0.8vw, 13px);
+      border: clamp(3px, 0.32vw, 5px) solid var(--yellow);
+      background: rgba(0, 130, 72, 0.94);
+      color: var(--white);
+      box-shadow: 4px 4px 0 var(--green-dark);
+      text-align: center;
+    }
+
+    .hud-label {
+      display: block;
+      overflow: hidden;
+      color: var(--cream);
+      font-size: clamp(7px, 0.65vw, 11px);
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      line-height: 1;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .hud-value {
+      display: block;
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--yellow);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(17px, 2vw, 34px);
+      letter-spacing: 0.04em;
+      line-height: 0.95;
+      text-overflow: ellipsis;
+      text-shadow: 3px 3px 0 var(--green-dark);
+      white-space: nowrap;
+    }
+
+    .hud-box.danger {
+      animation: danger-pulse 520ms steps(2, end) infinite;
+      background: var(--red);
+    }
+
+    @keyframes danger-pulse {
+      50% { transform: translateY(3px); }
+    }
+
+    .touch-controls {
+      position: absolute;
+      z-index: 32;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .touch-zone {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      width: 50%;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: clamp(18px, 3vw, 48px);
+      border: 0 solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.78);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(16px, 2.1vw, 34px);
+      letter-spacing: 0.18em;
+      line-height: 1;
+      text-shadow: 3px 3px 0 rgba(5, 43, 27, 0.85);
+    }
+
+    .touch-zone::before {
+      position: absolute;
+      right: 18%;
+      bottom: clamp(15px, 2.5vw, 40px);
+      left: 18%;
+      height: clamp(35px, 5vw, 76px);
+      border: clamp(2px, 0.25vw, 4px) dashed rgba(255, 255, 255, 0.34);
+      background: rgba(0, 130, 72, 0.14);
+      content: "";
+    }
+
+    .touch-zone span {
+      z-index: 1;
+    }
+
+    .touch-zone.left {
+      left: 0;
+      border-right-width: 2px;
+    }
+
+    .touch-zone.right {
+      left: 50%;
+      border-left-width: 2px;
+    }
+
+    .overlay {
+      position: absolute;
+      z-index: 75;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: clamp(16px, 3vw, 48px);
+      background: rgba(5, 43, 27, 0.76);
+      pointer-events: auto;
+    }
+
+    .overlay-card {
+      width: min(750px, 78%);
+      padding: clamp(18px, 2.5vw, 38px);
+      border: clamp(5px, 0.55vw, 9px) solid var(--yellow);
+      background: var(--cream);
+      color: var(--green-dark);
+      box-shadow: clamp(7px, 0.8vw, 13px) clamp(7px, 0.8vw, 13px) 0 var(--green-dark);
+      text-align: center;
+    }
+
+    .overlay-kicker {
+      margin: 0 0 clamp(6px, 0.8vw, 12px);
+      color: var(--green);
+      font-size: clamp(10px, 1vw, 17px);
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .overlay h1,
+    .overlay h2 {
+      margin: 0;
+      color: var(--green);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(38px, 6vw, 92px);
+      font-weight: 900;
+      letter-spacing: 0.025em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      text-shadow: 4px 4px 0 var(--yellow), 7px 7px 0 var(--green-dark);
+    }
+
+    .overlay h2 {
+      font-size: clamp(31px, 4.8vw, 74px);
+    }
+
+    .overlay-copy {
+      max-width: 640px;
+      margin: clamp(13px, 1.5vw, 22px) auto 0;
+      font-size: clamp(11px, 1.15vw, 19px);
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .overlay-score {
+      margin: clamp(12px, 1.4vw, 22px) 0 0;
+      color: var(--red);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(18px, 2vw, 34px);
+      letter-spacing: 0.04em;
+    }
+
+    .pixel-button {
+      min-width: min(440px, 92%);
+      min-height: clamp(56px, 7vw, 92px);
+      margin-top: clamp(14px, 2vw, 30px);
+      padding: 10px 22px;
+      border: clamp(4px, 0.45vw, 7px) solid var(--green-dark);
+      border-radius: 0;
+      background: var(--yellow);
+      color: var(--green-dark);
+      box-shadow: 7px 7px 0 var(--green);
+      cursor: pointer;
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(19px, 2.2vw, 36px);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      touch-action: none;
+    }
+
+    .pixel-button:active {
+      box-shadow: 2px 2px 0 var(--green);
+      transform: translate(5px, 5px);
+    }
+
+    .pixel-button:focus-visible {
+      outline: 5px dashed var(--red);
+      outline-offset: 5px;
+    }
+
+    .start-screen {
+      background: rgba(5, 43, 27, 0.9);
+    }
+
+    .start-title {
+      position: absolute;
+      z-index: 3;
+      top: 50%;
+      left: 50%;
+      width: min(620px, 62%);
+      padding: clamp(12px, 1.7vw, 25px);
+      border: clamp(4px, 0.45vw, 7px) solid var(--green-dark);
+      background: var(--yellow);
+      box-shadow: 7px 7px 0 var(--green);
+      text-align: center;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .start-title h1 {
+      color: var(--green);
+      font-size: clamp(28px, 4vw, 64px);
+      text-shadow: 3px 3px 0 var(--cream), 6px 6px 0 var(--green-dark);
+    }
+
+    .start-title p {
+      margin: 9px 0 0;
+      color: var(--green-dark);
+      font-size: clamp(9px, 0.95vw, 16px);
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .side-choice {
+      position: absolute;
+      z-index: 2;
+      left: 0;
+      display: flex;
+      width: 100%;
+      height: 50%;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 2vw, 32px);
+      color: var(--white);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(24px, 3.4vw, 54px);
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-shadow: 4px 4px 0 var(--green-dark);
+      text-transform: uppercase;
+    }
+
+    .side-choice::before {
+      position: absolute;
+      width: min(600px, 72%);
+      height: clamp(60px, 8vw, 118px);
+      border: clamp(4px, 0.45vw, 7px) dashed var(--yellow);
+      background: rgba(0, 130, 72, 0.32);
+      content: "";
+    }
+
+    .side-choice span {
+      z-index: 1;
+    }
+
+    .side-choice.top {
+      top: 0;
+      align-items: flex-end;
+      padding-top: 0;
+      padding-bottom: clamp(30px, 4vw, 65px);
+      transform: rotate(180deg);
+    }
+
+    .side-choice.bottom {
+      bottom: 0;
+      align-items: flex-end;
+      padding-bottom: clamp(30px, 4vw, 65px);
+    }
+
+    .countdown-screen {
+      background: rgba(5, 43, 27, 0.42);
+      pointer-events: none;
+    }
+
+    .countdown-value {
+      color: var(--yellow);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(120px, 23vw, 330px);
+      line-height: 0.75;
+      text-shadow: 10px 10px 0 var(--green), 18px 18px 0 var(--green-dark);
+      animation: countdown-pop 700ms steps(5, end) infinite;
+    }
+
+    @keyframes countdown-pop {
+      from { transform: scale(0.82); }
+      to { transform: scale(1); }
+    }
+
+    .toast {
+      position: absolute;
+      z-index: 68;
+      top: 22%;
+      left: 50%;
+      max-width: 74%;
+      padding: clamp(7px, 0.9vw, 14px) clamp(12px, 1.5vw, 24px);
+      border: clamp(3px, 0.34vw, 6px) solid var(--green-dark);
+      background: var(--yellow);
+      color: var(--green-dark);
+      box-shadow: 5px 5px 0 var(--green);
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: clamp(16px, 2.1vw, 34px);
+      letter-spacing: 0.06em;
+      line-height: 1;
+      text-align: center;
+      text-transform: uppercase;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .flash {
+      position: absolute;
+      z-index: 66;
+      inset: 0;
+      background: rgba(216, 58, 39, 0.62);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .flash.active {
+      animation: flash 330ms steps(3, end);
+    }
+
+    @keyframes flash {
+      0%, 55% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .touch-ripple {
+      position: absolute;
+      z-index: 65;
+      width: 76px;
+      height: 76px;
+      margin: -38px 0 0 -38px;
+      border: 7px solid var(--yellow);
+      background: rgba(0, 130, 72, 0.28);
+      pointer-events: none;
+      animation: touch-ripple 420ms steps(5, end) forwards;
+    }
+
+    @keyframes touch-ripple {
+      from { opacity: 1; transform: scale(0.35); }
+      to { opacity: 0; transform: scale(1.4); }
+    }
+
+    .legal {
+      margin: clamp(9px, 1vw, 15px) auto 0;
+      color: rgba(5, 43, 27, 0.72);
+      font-size: clamp(7px, 0.66vw, 11px);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    @media (max-width: 780px), (max-height: 470px) {
+      .hud { grid-template-columns: repeat(4, 1fr); }
+      .hud-box { box-shadow: 3px 3px 0 var(--green-dark); }
+      .overlay-copy { margin-top: 9px; }
+      .pixel-button { margin-top: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage { transition: none; }
+      .countdown-value,
+      .hud-box.danger { animation: none; }
+      .touch-ripple { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage" aria-label="Gra Hot Dog w Górę">
+    <canvas id="game-canvas" tabindex="0" aria-label="Plansza gry"></canvas>
+
+    <section class="hud" id="hud" hidden aria-label="Wynik gry">
+      <div class="hud-box" id="timer-box">
+        <span class="hud-label">Czas</span>
+        <span class="hud-value" id="timer">3:00</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Wysokość • wynik</span>
+        <span class="hud-value"><span id="height">0</span>F • <span id="score">0</span></span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Żappsy • combo</span>
+        <span class="hud-value">Ż×<span id="zapps">0</span> • ×<span id="combo">1</span></span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Życia</span>
+        <span class="hud-value" id="lives">♥ ♥ ♥</span>
+      </div>
+    </section>
+
+    <div class="touch-controls" id="touch-controls" hidden aria-hidden="true">
+      <div class="touch-zone left"><span>← LEWO</span></div>
+      <div class="touch-zone right"><span>PRAWO →</span></div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+    <div class="flash" id="flash"></div>
+
+    <section class="overlay" id="loading-screen" aria-live="polite">
+      <div class="overlay-card">
+        <p class="overlay-kicker">Ładowanie wieży</p>
+        <h2>Rozgrzewamy parówkę…</h2>
+        <p class="overlay-copy">Za chwilę zaczynamy wspinaczkę.</p>
+      </div>
+    </section>
+
+    <section class="overlay start-screen" id="start-screen" hidden>
+      <div class="side-choice top"><span>DOTKNIJ TUTAJ</span></div>
+      <div class="start-title">
+        <h1>Hot Dog<br>w Górę!</h1>
+        <p>Wybierz swoją stronę stołu. Potem dotykaj lewej lub prawej połowy ekranu.</p>
+      </div>
+      <div class="side-choice bottom"><span>DOTKNIJ TUTAJ</span></div>
+    </section>
+
+    <section class="overlay countdown-screen" id="countdown-screen" hidden aria-live="assertive">
+      <div class="countdown-value" id="countdown-value">3</div>
+    </section>
+
+    <section class="overlay" id="gameover-screen" hidden>
+      <div class="overlay-card">
+        <p class="overlay-kicker">Koniec wspinaczki</p>
+        <h2>Hot Dog spadł!</h2>
+        <p class="overlay-score" id="gameover-score">Wynik: 0</p>
+        <button class="pixel-button" id="retry-button" type="button">ZAGRAJ PONOWNIE</button>
+        <p class="legal">Ekran startowy wróci automatycznie po chwili bezczynności.</p>
+      </div>
+    </section>
+
+    <section class="overlay" id="win-screen" hidden>
+      <div class="overlay-card">
+        <p class="overlay-kicker">Szczyt zdobyty</p>
+        <h2>WYGRANA!<br>Hot Dog dotarł do Żabki!</h2>
+        <p class="overlay-score" id="win-score">Wynik: 0</p>
+        <button class="pixel-button" id="replay-button" type="button">ZAGRAJ PONOWNIE</button>
+        <p class="legal">Żappsy w tej grze są fikcyjnymi punktami rozgrywki i nie oznaczają prawdziwych punktów programu lojalnościowego.</p>
+      </div>
+    </section>
+
+    <section class="overlay" id="error-screen" hidden>
+      <div class="overlay-card">
+        <p class="overlay-kicker">Brak połączenia</p>
+        <h2>Nie udało się uruchomić gry</h2>
+        <p class="overlay-copy">Do pierwszego uruchomienia biblioteki Kaboom.js potrzebne jest połączenie z internetem. Odśwież ekran po połączeniu.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/kaboom@3000.0.1/dist/kaboom.js"></script>
+  <script>
+    /*
+      OPCJONALNE GRAFIKI PNG DLA GAME3 — umieść je obok tego pliku:
+
+      game3_hotdog.png     — bohater Hot Dog, przezroczyste tło, najlepiej 128×128 px
+      game3_zapps.png      — zielony żapps z literą Ż, przezroczyste tło, najlepiej 64×64 px
+      game3_platform.png   — kafel platformy, najlepiej 256×64 px
+      game3_spring.png     — sprężyna, przezroczyste tło, najlepiej 96×64 px
+      game3_can.png        — spadająca puszka, przezroczyste tło, najlepiej 96×96 px
+      game3_background.png — pionowa sklepowa wieża / tło 16:9, najlepiej 1280×720 px
+      game3_store.png      — sklep ŻABKA, przezroczyste tło, najlepiej 640×480 px
+
+      Każdy brakujący plik jest bezpiecznie zastępowany pixel artem rysowanym w kodzie.
+    */
+
+    (() => {
+      "use strict";
+
+      const GAME_WIDTH = 1280;
+      const GAME_HEIGHT = 720;
+      const GROUND_Y = 650;
+      const FLOOR_GAP = 116;
+      const LAST_FLOOR = 41;
+      const GRAVITY = 2100;
+      const BOUNCE_FORCE = 800;
+      const SPRING_FORCE = 1040;
+      const MAX_RUN_SPEED = 390;
+      const PLAYER_MIN_X = 94;
+      const PLAYER_MAX_X = 1186;
+      const ROUND_TIME = 180;
+      const RESULT_IDLE_TIME = 16;
+      const BODY_OPTIONS = { jumpForce: BOUNCE_FORCE, maxVelocity: 1600, stickToPlatform: true };
+
+      const COLORS = {
+        green: "#008248",
+        greenLight: "#16A765",
+        greenDark: "#052B1B",
+        yellow: "#FFD100",
+        cream: "#FFF4C2",
+        red: "#D83A27",
+        sky: "#8FD7C0",
+        white: "#FFFFFF",
+        metal: "#A9C8BE",
+        blue: "#45BFC6"
+      };
+
+      const REDUCE_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const dom = {
+        stage: document.getElementById("stage"),
+        canvas: document.getElementById("game-canvas"),
+        hud: document.getElementById("hud"),
+        timerBox: document.getElementById("timer-box"),
+        timer: document.getElementById("timer"),
+        height: document.getElementById("height"),
+        score: document.getElementById("score"),
+        zapps: document.getElementById("zapps"),
+        combo: document.getElementById("combo"),
+        lives: document.getElementById("lives"),
+        controls: document.getElementById("touch-controls"),
+        toast: document.getElementById("toast"),
+        flash: document.getElementById("flash"),
+        loading: document.getElementById("loading-screen"),
+        start: document.getElementById("start-screen"),
+        countdown: document.getElementById("countdown-screen"),
+        countdownValue: document.getElementById("countdown-value"),
+        gameover: document.getElementById("gameover-screen"),
+        gameoverScore: document.getElementById("gameover-score"),
+        retry: document.getElementById("retry-button"),
+        win: document.getElementById("win-screen"),
+        winScore: document.getElementById("win-score"),
+        replay: document.getElementById("replay-button"),
+        error: document.getElementById("error-screen")
+      };
+
+      if (typeof window.kaboom !== "function") {
+        dom.loading.hidden = true;
+        dom.error.hidden = false;
+        return;
+      }
+
+      let k;
+      try {
+        k = window.kaboom({
+          global: false,
+          canvas: dom.canvas,
+          width: GAME_WIDTH,
+          height: GAME_HEIGHT,
+          background: [143, 215, 192],
+          crisp: true,
+          texFilter: "nearest",
+          pixelDensity: 1,
+          loadingScreen: false,
+          debug: false,
+          maxFPS: 60,
+          touchToMouse: false,
+          backgroundAudio: false
+        });
+      } catch (error) {
+        console.error(error);
+        dom.loading.hidden = true;
+        dom.error.hidden = false;
+        return;
+      }
+
+      k.setGravity(GRAVITY);
+
+      class PixelAudio {
+        constructor() {
+          this.context = null;
+          this.master = null;
+        }
+
+        unlock() {
+          if (!this.context) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+            this.context = new AudioContextClass();
+            this.master = this.context.createGain();
+            this.master.gain.value = 0.34;
+            this.master.connect(this.context.destination);
+          }
+          if (this.context.state === "suspended") this.context.resume();
+        }
+
+        tone(frequency, duration, type = "square", volume = 0.1, endFrequency = null, delay = 0) {
+          if (!this.context || !this.master) return;
+          const start = this.context.currentTime + delay;
+          const oscillator = this.context.createOscillator();
+          const gain = this.context.createGain();
+          oscillator.type = type;
+          oscillator.frequency.setValueAtTime(frequency, start);
+          if (endFrequency) {
+            oscillator.frequency.exponentialRampToValueAtTime(Math.max(28, endFrequency), start + duration);
+          }
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(volume, start + 0.008);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+          oscillator.connect(gain);
+          gain.connect(this.master);
+          oscillator.start(start);
+          oscillator.stop(start + duration + 0.03);
+        }
+
+        jump(delay = 0.035) {
+          this.tone(250, 0.11, "square", 0.11, 540, delay);
+        }
+
+        land() {
+          this.tone(135, 0.065, "square", 0.12, 88);
+          this.tone(215, 0.05, "triangle", 0.06, 130, 0.018);
+        }
+
+        collect() {
+          this.tone(650, 0.075, "square", 0.12, 930);
+          this.tone(960, 0.1, "square", 0.08, 1240, 0.065);
+        }
+
+        combo(level) {
+          const base = 360 + level * 42;
+          this.tone(base, 0.08, "square", 0.08, base * 1.3);
+          this.tone(base * 1.5, 0.11, "square", 0.07, base * 1.8, 0.055);
+        }
+
+        spring() {
+          this.tone(150, 0.2, "square", 0.14, 910);
+          this.tone(420, 0.12, "triangle", 0.08, 1180, 0.07);
+        }
+
+        checkpoint() {
+          [392, 523, 659, 784].forEach((note, index) => this.tone(note, 0.13, "square", 0.08, note * 1.03, index * 0.08));
+        }
+
+        collision() {
+          this.tone(185, 0.1, "sawtooth", 0.11, 72);
+        }
+
+        lifeLost() {
+          this.tone(170, 0.3, "sawtooth", 0.17, 44);
+          this.tone(80, 0.25, "square", 0.1, 34, 0.06);
+        }
+
+        win() {
+          [262, 330, 392, 523, 659, 784, 1046].forEach((note, index) => this.tone(note, 0.18, "square", 0.09, note * 1.015, index * 0.09));
+        }
+      }
+
+      const audio = new PixelAudio();
+      let controller = null;
+      let toastUntil = 0;
+      let lastStagePress = 0;
+
+      function makeCanvas(width, height, draw) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.imageSmoothingEnabled = false;
+        draw(context, width, height);
+        return canvas;
+      }
+
+      function rect(context, x, y, width, height, color) {
+        context.fillStyle = color;
+        context.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
+      }
+
+      function fallbackHotdog() {
+        return makeCanvas(104, 112, (c) => {
+          rect(c, 18, 22, 68, 70, COLORS.greenDark);
+          rect(c, 10, 34, 84, 44, "#D18A3B");
+          rect(c, 16, 27, 72, 57, "#F1B653");
+          rect(c, 23, 32, 58, 47, "#D94B31");
+          rect(c, 28, 42, 10, 6, COLORS.yellow);
+          rect(c, 37, 48, 10, 6, COLORS.yellow);
+          rect(c, 46, 54, 10, 6, COLORS.yellow);
+          rect(c, 55, 48, 10, 6, COLORS.yellow);
+          rect(c, 64, 42, 10, 6, COLORS.yellow);
+          rect(c, 37, 36, 6, 8, COLORS.greenDark);
+          rect(c, 38, 36, 2, 3, COLORS.white);
+          rect(c, 62, 36, 6, 8, COLORS.greenDark);
+          rect(c, 63, 36, 2, 3, COLORS.white);
+          rect(c, 47, 66, 13, 4, COLORS.greenDark);
+          rect(c, 24, 82, 11, 17, COLORS.greenDark);
+          rect(c, 15, 96, 23, 9, COLORS.yellow);
+          rect(c, 70, 82, 11, 17, COLORS.greenDark);
+          rect(c, 69, 96, 23, 9, COLORS.yellow);
+          rect(c, 3, 51, 15, 8, COLORS.greenDark);
+          rect(c, 86, 51, 15, 8, COLORS.greenDark);
+        });
+      }
+
+      function fallbackZapps() {
+        return makeCanvas(56, 56, (c) => {
+          rect(c, 15, 3, 26, 5, COLORS.greenDark);
+          rect(c, 8, 8, 40, 6, COLORS.greenDark);
+          rect(c, 4, 14, 48, 28, COLORS.greenDark);
+          rect(c, 9, 9, 38, 38, COLORS.greenLight);
+          rect(c, 14, 14, 28, 28, COLORS.green);
+          rect(c, 19, 16, 19, 6, COLORS.yellow);
+          rect(c, 31, 21, 7, 5, COLORS.yellow);
+          rect(c, 24, 26, 14, 5, COLORS.yellow);
+          rect(c, 18, 31, 8, 5, COLORS.yellow);
+          rect(c, 18, 36, 20, 5, COLORS.yellow);
+          rect(c, 8, 42, 40, 6, COLORS.greenDark);
+          rect(c, 15, 48, 26, 5, COLORS.greenDark);
+        });
+      }
+
+      function fallbackPlatform() {
+        return makeCanvas(256, 64, (c) => {
+          rect(c, 0, 5, 256, 55, COLORS.greenDark);
+          rect(c, 6, 0, 244, 52, COLORS.green);
+          rect(c, 6, 0, 244, 12, COLORS.yellow);
+          rect(c, 15, 19, 226, 24, COLORS.greenLight);
+          for (let x = 20; x < 236; x += 42) {
+            rect(c, x, 20, 20, 8, COLORS.cream);
+            rect(c, x + 10, 29, 20, 8, COLORS.cream);
+          }
+          rect(c, 6, 48, 244, 8, "#064D2F");
+        });
+      }
+
+      function fallbackSpring() {
+        return makeCanvas(96, 64, (c) => {
+          rect(c, 8, 48, 80, 12, COLORS.greenDark);
+          rect(c, 14, 43, 68, 12, COLORS.yellow);
+          rect(c, 26, 14, 8, 32, COLORS.greenDark);
+          rect(c, 34, 20, 8, 25, COLORS.metal);
+          rect(c, 42, 14, 8, 32, COLORS.greenDark);
+          rect(c, 50, 20, 8, 25, COLORS.metal);
+          rect(c, 58, 14, 8, 32, COLORS.greenDark);
+          rect(c, 12, 7, 72, 14, COLORS.greenDark);
+          rect(c, 18, 2, 60, 14, COLORS.red);
+          rect(c, 23, 5, 50, 5, COLORS.cream);
+        });
+      }
+
+      function fallbackCan() {
+        return makeCanvas(80, 88, (c) => {
+          rect(c, 15, 4, 50, 78, COLORS.greenDark);
+          rect(c, 10, 12, 60, 62, COLORS.metal);
+          rect(c, 15, 16, 50, 54, COLORS.blue);
+          rect(c, 15, 31, 50, 24, COLORS.green);
+          rect(c, 10, 7, 60, 12, COLORS.cream);
+          rect(c, 10, 69, 60, 11, "#78958B");
+          rect(c, 24, 35, 32, 16, COLORS.yellow);
+          rect(c, 30, 39, 20, 8, COLORS.greenDark);
+        });
+      }
+
+      function fallbackBackground() {
+        return makeCanvas(640, 360, (c) => {
+          rect(c, 0, 0, 640, 360, COLORS.sky);
+          rect(c, 0, 0, 640, 108, "#C9F0E3");
+          rect(c, 64, 0, 36, 360, "#0A6840");
+          rect(c, 540, 0, 36, 360, "#0A6840");
+          rect(c, 76, 0, 11, 360, COLORS.yellow);
+          rect(c, 552, 0, 11, 360, COLORS.yellow);
+          for (let y = 20; y < 360; y += 72) {
+            rect(c, 105, y, 430, 4, "#65C59D");
+            rect(c, 105, y + 4, 430, 3, "#BCE9D8");
+          }
+          for (let x = 130; x < 520; x += 74) {
+            rect(c, x, 52, 42, 22, "#BCE9D8");
+            rect(c, x + 8, 58, 26, 10, COLORS.cream);
+          }
+          rect(c, 0, 330, 640, 30, "#0C5134");
+        });
+      }
+
+      function fallbackStore() {
+        return makeCanvas(600, 450, (c) => {
+          rect(c, 18, 60, 564, 374, COLORS.greenDark);
+          rect(c, 30, 72, 540, 350, COLORS.green);
+          rect(c, 7, 32, 586, 89, COLORS.greenDark);
+          rect(c, 18, 43, 564, 67, COLORS.greenLight);
+          rect(c, 115, 50, 370, 82, COLORS.yellow);
+          rect(c, 127, 62, 346, 58, COLORS.greenDark);
+          c.fillStyle = COLORS.yellow;
+          c.font = "bold 48px Arial Black, sans-serif";
+          c.textAlign = "center";
+          c.textBaseline = "middle";
+          c.fillText("ŻABKA", 300, 91);
+          rect(c, 55, 184, 170, 238, COLORS.greenDark);
+          rect(c, 67, 196, 146, 226, "#9BDED0");
+          rect(c, 132, 196, 10, 226, COLORS.greenDark);
+          rect(c, 78, 213, 43, 58, "#3A897A");
+          rect(c, 153, 213, 43, 58, "#3A897A");
+          rect(c, 74, 344, 132, 13, COLORS.yellow);
+          rect(c, 260, 173, 263, 156, COLORS.cream);
+          rect(c, 272, 185, 239, 132, "#71C6AF");
+          for (let x = 286; x < 500; x += 54) {
+            rect(c, x, 198, 34, 106, "#2C7969");
+            rect(c, x + 7, 207, 20, 20, COLORS.yellow);
+          }
+          rect(c, 255, 348, 278, 54, COLORS.yellow);
+          rect(c, 268, 360, 252, 30, COLORS.greenDark);
+          c.fillStyle = COLORS.yellow;
+          c.font = "bold 22px Arial Black, sans-serif";
+          c.fillText("CEL OSIĄGNIĘTY!", 394, 375);
+          rect(c, 0, 422, 600, 28, "#113E2B");
+          rect(c, 0, 422, 600, 8, COLORS.yellow);
+        });
+      }
+
+      const assetDefinitions = [
+        { name: "hotdog", file: "game3_hotdog.png", fallback: fallbackHotdog },
+        { name: "zapps", file: "game3_zapps.png", fallback: fallbackZapps },
+        { name: "platform", file: "game3_platform.png", fallback: fallbackPlatform },
+        { name: "spring", file: "game3_spring.png", fallback: fallbackSpring },
+        { name: "can", file: "game3_can.png", fallback: fallbackCan },
+        { name: "background", file: "game3_background.png", fallback: fallbackBackground },
+        { name: "store", file: "game3_store.png", fallback: fallbackStore }
+      ];
+
+      function loadImageOrFallback(definition) {
+        return new Promise((resolve) => {
+          const image = new Image();
+          let settled = false;
+          const finish = (source, loaded) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            resolve({ definition, source, loaded });
+          };
+          const timeout = window.setTimeout(() => finish(definition.fallback(), false), 2200);
+          image.decoding = "async";
+          image.onload = () => finish(image, true);
+          image.onerror = () => finish(definition.fallback(), false);
+          image.src = definition.file;
+        });
+      }
+
+      function rgb(hex) {
+        const value = hex.replace("#", "");
+        return k.rgb(
+          parseInt(value.slice(0, 2), 16),
+          parseInt(value.slice(2, 4), 16),
+          parseInt(value.slice(4, 6), 16)
+        );
+      }
+
+      function safeDelta() {
+        return Math.min(k.dt(), 1 / 30);
+      }
+
+      function hideOverlays() {
+        dom.loading.hidden = true;
+        dom.start.hidden = true;
+        dom.countdown.hidden = true;
+        dom.gameover.hidden = true;
+        dom.win.hidden = true;
+        dom.error.hidden = true;
+      }
+
+      function setHud(lives, zapps, score, combo, height, time) {
+        dom.lives.innerHTML = [0, 1, 2].map((index) => index < lives ? "<span>♥</span>" : "<span style=\"opacity:.22\">♥</span>").join(" ");
+        dom.zapps.textContent = String(zapps);
+        dom.score.textContent = String(score);
+        dom.combo.textContent = String(Math.max(1, combo));
+        dom.height.textContent = String(height);
+        const whole = Math.max(0, Math.ceil(time));
+        dom.timer.textContent = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+        dom.timerBox.classList.toggle("danger", time <= 15);
+      }
+
+      function showToast(message, duration = 900) {
+        dom.toast.textContent = message;
+        dom.toast.hidden = false;
+        toastUntil = performance.now() + duration;
+      }
+
+      function flashScreen() {
+        dom.flash.classList.remove("active");
+        void dom.flash.offsetWidth;
+        dom.flash.classList.add("active");
+      }
+
+      function addBurst(position, colors, amount = 10) {
+        const count = REDUCE_MOTION ? Math.ceil(amount / 2) : amount;
+        for (let index = 0; index < count; index += 1) {
+          const particle = k.add([
+            k.rect(k.rand(6, 13), k.rand(6, 13)),
+            k.pos(position.x + k.rand(-15, 15), position.y + k.rand(-10, 10)),
+            k.anchor("center"),
+            k.color(rgb(colors[Math.floor(k.rand(0, colors.length))])),
+            k.opacity(1),
+            k.rotate(k.rand(0, 90)),
+            k.z(55),
+            { velocity: k.vec2(k.rand(-190, 190), k.rand(-300, -100)), age: 0, spin: k.rand(-360, 360) }
+          ]);
+          particle.onUpdate(() => {
+            const delta = safeDelta();
+            particle.age += delta;
+            particle.velocity.y += 840 * delta;
+            particle.pos = particle.pos.add(particle.velocity.scale(delta));
+            particle.angle += particle.spin * delta;
+            particle.opacity = Math.max(0, 1 - particle.age / 0.68);
+            if (particle.age >= 0.7) k.destroy(particle);
+          });
+        }
+      }
+
+      function addScorePop(position, text, color = COLORS.yellow) {
+        const popup = k.add([
+          k.text(text, { size: 25, font: "monospace" }),
+          k.pos(position.x, position.y - 45),
+          k.anchor("center"),
+          k.color(rgb(color)),
+          k.outline(4, rgb(COLORS.greenDark)),
+          k.opacity(1),
+          k.z(62),
+          { age: 0 }
+        ]);
+        popup.onUpdate(() => {
+          const delta = safeDelta();
+          popup.age += delta;
+          popup.pos.y -= 64 * delta;
+          popup.opacity = Math.max(0, 1 - popup.age / 0.75);
+          if (popup.age >= 0.78) k.destroy(popup);
+        });
+      }
+
+      function addConfetti() {
+        const colors = [COLORS.yellow, COLORS.greenLight, COLORS.cream, COLORS.red, COLORS.white, COLORS.blue];
+        const amount = REDUCE_MOTION ? 40 : 130;
+        for (let index = 0; index < amount; index += 1) {
+          const confetti = k.add([
+            k.rect(k.rand(7, 17), k.rand(4, 11)),
+            k.pos(k.rand(50, GAME_WIDTH - 50), k.rand(-120, 190)),
+            k.anchor("center"),
+            k.color(rgb(colors[Math.floor(k.rand(0, colors.length))])),
+            k.opacity(1),
+            k.rotate(k.rand(0, 360)),
+            k.fixed(),
+            k.z(72),
+            "confetti",
+            { velocity: k.vec2(k.rand(-80, 80), k.rand(140, 300)), spin: k.rand(-420, 420), wave: k.rand(0, 7) }
+          ]);
+          confetti.onUpdate(() => {
+            const delta = safeDelta();
+            confetti.wave += delta * 4;
+            confetti.pos.x += (confetti.velocity.x + Math.sin(confetti.wave) * 30) * delta;
+            confetti.pos.y += confetti.velocity.y * delta;
+            confetti.angle += confetti.spin * delta;
+            if (confetti.pos.y > GAME_HEIGHT + 80) k.destroy(confetti);
+          });
+        }
+      }
+
+      const centerPattern = [
+        340, 520, 750, 970, 760, 535, 315, 520, 745, 930,
+        720, 495, 275, 500, 735, 955, 750, 520, 300, 535,
+        780, 980, 760, 530, 305, 520, 750, 940, 720, 490,
+        275, 510, 760, 970, 750, 520, 300, 525, 760, 930,
+        640
+      ];
+
+      function platformType(floor) {
+        if (floor === 0 || floor % 10 === 0 || floor === LAST_FLOOR) return "checkpoint";
+        if ([5, 13, 21, 29, 36].includes(floor)) return "spring";
+        if ([7, 15, 24, 32, 38].includes(floor)) return "crumble";
+        if ([4, 9, 17, 23, 28, 34, 39].includes(floor)) return "moving";
+        if ([6, 12, 19, 27, 35].includes(floor)) return "ketchup";
+        return "normal";
+      }
+
+      function floorY(floor) {
+        return GROUND_Y - floor * FLOOR_GAP;
+      }
+
+      function floorDefinition(floor) {
+        const type = platformType(floor);
+        const width = floor === 0 ? 940 : (type === "checkpoint" ? 300 : Math.max(176, 252 - Math.floor(floor / 7) * 9));
+        const center = floor === 0 ? 640 : centerPattern[floor - 1];
+        return {
+          floor,
+          type,
+          width,
+          x: Math.max(105, Math.min(GAME_WIDTH - 105 - width, center - width / 2)),
+          y: floorY(floor),
+          moveRange: type === "moving" ? Math.min(56, 42 + floor) : 0,
+          moveSpeed: 1.15 + floor * 0.018,
+          phase: floor * 0.73
+        };
+      }
+
+      function buildTower(options = {}) {
+        hideOverlays();
+        dom.hud.hidden = false;
+        dom.controls.hidden = true;
+        dom.toast.hidden = true;
+        toastUntil = 0;
+
+        let state = "ready";
+        let lives = 3;
+        let zapps = 0;
+        let score = 0;
+        let combo = 1;
+        let comboFor = 0;
+        let highestFloor = 0;
+        let lastNewFloorAt = -10;
+        let timeLeft = ROUND_TIME;
+        let cameraY = GAME_HEIGHT / 2;
+        let horizontalSpeed = 0;
+        let landingCooldown = 0;
+        let invulnerableFor = 0;
+        let respawnFor = 0;
+        let resultIdleFor = 0;
+        let countdownFor = 0;
+        let goFor = 0;
+        let inputLockFor = 0;
+        let elapsed = 0;
+        let tapDirection = 0;
+        let tapSteerFor = 0;
+        let checkpoint = { floor: 0, x: 640, y: GROUND_Y };
+        let sceneGeneration = Symbol("tower");
+        const activePointers = new Map();
+        const keyboardDirections = new Map();
+        const platforms = new Map();
+        const collectedTokens = new Set();
+
+        k.add([
+          k.sprite("background", { width: GAME_WIDTH, height: GAME_HEIGHT }),
+          k.pos(0, 0),
+          k.fixed(),
+          k.z(-100)
+        ]);
+
+        k.add([k.rect(54, GAME_HEIGHT), k.pos(38, 0), k.color(rgb(COLORS.greenDark)), k.fixed(), k.z(-25)]);
+        k.add([k.rect(12, GAME_HEIGHT), k.pos(92, 0), k.color(rgb(COLORS.yellow)), k.fixed(), k.z(-24)]);
+        k.add([k.rect(54, GAME_HEIGHT), k.pos(GAME_WIDTH - 92, 0), k.color(rgb(COLORS.greenDark)), k.fixed(), k.z(-25)]);
+        k.add([k.rect(12, GAME_HEIGHT), k.pos(GAME_WIDTH - 104, 0), k.color(rgb(COLORS.yellow)), k.fixed(), k.z(-24)]);
+
+        for (let floor = 0; floor <= LAST_FLOOR; floor += 5) {
+          const y = floorY(floor) - 18;
+          k.add([
+            k.text(`${floor}F`, { size: 22, font: "monospace" }),
+            k.pos(112, y),
+            k.color(rgb(COLORS.greenDark)),
+            k.opacity(0.68),
+            k.z(-12)
+          ]);
+        }
+
+        function addPlatform(definition, spawnExtras = true) {
+          const platform = k.add([
+            k.sprite("platform", { width: definition.width, height: 34 }),
+            k.pos(definition.x, definition.y),
+            k.area({ scale: k.vec2(1, 0.7) }),
+            k.body({ isStatic: true }),
+            k.opacity(1),
+            k.z(5),
+            "platform",
+            "oneway",
+            {
+              definition,
+              baseX: definition.x,
+              phase: definition.phase,
+              crumbling: false,
+              landed: false
+            }
+          ]);
+          platforms.set(definition.floor, platform);
+
+          if (definition.type === "checkpoint") {
+            platform.add([
+              k.rect(Math.min(86, definition.width - 30), 10),
+              k.pos(15, -10),
+              k.color(rgb(COLORS.yellow)),
+              k.outline(4, rgb(COLORS.greenDark)),
+              k.z(7)
+            ]);
+          }
+
+          if (definition.type === "spring") {
+            platform.add([
+              k.sprite("spring", { width: 72, height: 48 }),
+              k.pos(definition.width / 2, 1),
+              k.anchor("bot"),
+              k.z(8)
+            ]);
+          }
+
+          if (definition.type === "ketchup") {
+            const splat = platform.add([
+              k.pos(definition.width / 2 - 42, -4),
+              k.z(8),
+              {
+                draw() {
+                  k.drawRect({ width: 86, height: 13, color: rgb(COLORS.red) });
+                  k.drawRect({ pos: k.vec2(14, -6), width: 51, height: 8, color: rgb(COLORS.red) });
+                  k.drawRect({ pos: k.vec2(33, -11), width: 18, height: 7, color: rgb(COLORS.red) });
+                }
+              }
+            ]);
+            void splat;
+          }
+
+          if (definition.type === "crumble") {
+            platform.add([
+              k.rect(Math.max(30, definition.width - 34), 8),
+              k.pos(17, 11),
+              k.color(rgb("#B1A67A")),
+              k.opacity(0.78),
+              k.z(7)
+            ]);
+          }
+
+          if (definition.type === "moving") {
+            platform.onUpdate(() => {
+              if (state !== "playing") return;
+              platform.phase += safeDelta() * definition.moveSpeed;
+              platform.pos.x = platform.baseX + Math.sin(platform.phase) * definition.moveRange;
+            });
+          }
+
+          if (spawnExtras && definition.floor > 0 && definition.floor < LAST_FLOOR && definition.floor % 2 === 0 && definition.type !== "crumble") {
+            addZapps(definition.floor, platform, definition.width / 2);
+          }
+          return platform;
+        }
+
+        function addZapps(floor, carrier, offsetX) {
+          const token = k.add([
+            k.sprite("zapps", { width: 50, height: 50 }),
+            k.pos(carrier.pos.x + offsetX, carrier.pos.y - 56),
+            k.anchor("center"),
+            k.area({ scale: 0.72 }),
+            k.scale(1),
+            k.rotate(0),
+            k.z(15),
+            "zapps",
+            { floor, carrier, offsetX, phase: floor * 0.9 }
+          ]);
+          token.onUpdate(() => {
+            if (!token.carrier.exists()) return;
+            token.phase += safeDelta() * 4;
+            token.pos.x = token.carrier.pos.x + token.offsetX;
+            token.pos.y = token.carrier.pos.y - 57 + Math.sin(token.phase) * 5;
+            token.angle = Math.sin(token.phase * 0.8) * 9;
+            const pulse = 1 + Math.sin(token.phase * 1.4) * 0.055;
+            token.scale.x = pulse;
+            token.scale.y = pulse;
+          });
+        }
+
+        for (let floor = 0; floor <= LAST_FLOOR; floor += 1) {
+          addPlatform(floorDefinition(floor));
+        }
+
+        const storePlatform = platforms.get(LAST_FLOOR);
+        k.add([
+          k.sprite("store", { width: 560, height: 420 }),
+          k.pos(360, storePlatform.pos.y + 10),
+          k.anchor("botleft"),
+          k.z(1),
+          "store"
+        ]);
+
+        const canConfigs = [
+          { floor: 12, x: 850, delay: 0.3 },
+          { floor: 18, x: 420, delay: 1.1 },
+          { floor: 25, x: 900, delay: 0.7 },
+          { floor: 31, x: 350, delay: 1.6 },
+          { floor: 37, x: 815, delay: 0.2 }
+        ];
+
+        canConfigs.forEach((config) => {
+          const top = floorY(config.floor) - 430;
+          const bottom = floorY(config.floor) + 430;
+          const can = k.add([
+            k.sprite("can", { width: 68, height: 75 }),
+            k.pos(config.x, top - config.delay * 260),
+            k.anchor("center"),
+            k.area({ scale: 0.7 }),
+            k.rotate(0),
+            k.opacity(1),
+            k.z(17),
+            "fallingCan",
+            { top, bottom, speed: 250 + config.floor * 3, disabledFor: 0 }
+          ]);
+          can.onUpdate(() => {
+            const delta = safeDelta();
+            can.disabledFor = Math.max(0, can.disabledFor - delta);
+            can.opacity = can.disabledFor > 0 ? 0 : 1;
+            if (state !== "playing" || can.disabledFor > 0) return;
+            can.pos.y += can.speed * delta;
+            can.angle += 210 * delta;
+            if (can.pos.y > can.bottom) can.pos.y = can.top;
+          });
+        });
+
+        const player = k.add([
+          k.rect(62, 78),
+          k.pos(640, GROUND_Y - 2),
+          k.anchor("bot"),
+          k.area({ scale: k.vec2(0.82, 0.9) }),
+          k.body(BODY_OPTIONS),
+          k.opacity(0),
+          k.z(25),
+          "player"
+        ]);
+
+        const playerVisual = player.add([
+          k.sprite("hotdog", { width: 94, height: 102 }),
+          k.pos(0, 4),
+          k.anchor("bot"),
+          k.scale(1),
+          k.rotate(0),
+          k.opacity(1),
+          k.z(26)
+        ]);
+
+        player.onBeforePhysicsResolve((collision) => {
+          if (!collision.target.is("oneway")) return;
+          const canLand = collision.isBottom() && player.isFalling();
+          if (!canLand) collision.preventResolution();
+        });
+
+        function visualDirectionToWorld(direction) {
+          return direction;
+        }
+
+        function currentInputDirection() {
+          let visualDirection = 0;
+          keyboardDirections.forEach((direction) => { visualDirection += direction; });
+          activePointers.forEach((direction) => { visualDirection = direction; });
+          if (visualDirection === 0 && tapSteerFor > 0) visualDirection = tapDirection;
+          return visualDirectionToWorld(Math.max(-1, Math.min(1, visualDirection)));
+        }
+
+        function chooseOrientation(event) {
+          const bounds = dom.stage.getBoundingClientRect();
+          const fromTop = Boolean(event) && event.clientY < bounds.top + bounds.height / 2;
+          dom.stage.classList.toggle("flipped", fromTop);
+        }
+
+        function clearInputs() {
+          activePointers.clear();
+          keyboardDirections.clear();
+          tapDirection = 0;
+          tapSteerFor = 0;
+          horizontalSpeed = 0;
+        }
+
+        function beginCountdown(event, preserveOrientation = false) {
+          if (state !== "ready") return;
+          if (!preserveOrientation) chooseOrientation(event);
+          audio.unlock();
+          clearInputs();
+          state = "countdown";
+          countdownFor = 3;
+          inputLockFor = 0.25;
+          dom.start.hidden = true;
+          dom.controls.hidden = false;
+          dom.countdown.hidden = false;
+          dom.countdownValue.textContent = "3";
+          dom.canvas.focus({ preventScroll: true });
+        }
+
+        function resetCombo() {
+          combo = 1;
+          comboFor = 0;
+        }
+
+        function updateCheckpoint(platform) {
+          const floor = platform.definition.floor;
+          if (floor === 0 || floor % 10 !== 0 || floor <= checkpoint.floor) return;
+          checkpoint = {
+            floor,
+            x: platform.pos.x + platform.definition.width / 2,
+            y: platform.pos.y
+          };
+          audio.checkpoint();
+          score += 500;
+          showToast(`CHECKPOINT • ${floor} PIĘTRO`, 1200);
+          addBurst(k.vec2(checkpoint.x, checkpoint.y - 18), [COLORS.yellow, COLORS.greenLight, COLORS.white], 22);
+        }
+
+        function crumblePlatform(platform) {
+          if (platform.crumbling) return;
+          platform.crumbling = true;
+          const definition = platform.definition;
+          k.wait(0.14, () => {
+            if (!platform.exists() || sceneGeneration === null) return;
+            const origin = k.vec2(platform.pos.x + definition.width / 2, platform.pos.y + 12);
+            addBurst(origin, ["#B1A67A", COLORS.cream, COLORS.greenDark], 18);
+            platforms.delete(definition.floor);
+            k.destroy(platform);
+            k.wait(2.1, () => {
+              if (sceneGeneration !== null && state !== "restarting") addPlatform(definition, false);
+            });
+          });
+        }
+
+        function landOn(platform) {
+          if (state !== "playing" || landingCooldown > 0 || !platform.exists()) return;
+          landingCooldown = 0.1;
+          const floor = platform.definition.floor;
+          const now = elapsed;
+          const newFloor = floor > highestFloor;
+
+          audio.land();
+          addBurst(k.vec2(player.pos.x, player.pos.y + 2), [COLORS.cream, COLORS.yellow], 7);
+
+          if (newFloor) {
+            const skipped = Math.max(0, floor - highestFloor - 1);
+            combo = now - lastNewFloorAt <= 1.38 ? Math.min(9, combo + 1 + Math.min(2, skipped)) : 1;
+            comboFor = 1.55;
+            highestFloor = floor;
+            lastNewFloorAt = now;
+            const earned = 45 * combo + skipped * 110;
+            score += earned;
+            addScorePop(player.pos, `+${earned}${skipped ? " SKIP!" : ""}`);
+            if (combo >= 2) audio.combo(combo);
+            if (skipped > 0) showToast(`PRZESKOK +${skipped} • COMBO ×${combo}`, 850);
+          }
+
+          updateCheckpoint(platform);
+
+          if (floor === LAST_FLOOR) {
+            finishGame();
+            return;
+          }
+
+          if (platform.definition.type === "ketchup") {
+            player.slipperyFor = 1.65;
+            showToast("KETCHUP! ŚLISKO!", 720);
+          }
+
+          if (platform.definition.type === "crumble") crumblePlatform(platform);
+
+          const force = platform.definition.type === "spring" ? SPRING_FORCE : BOUNCE_FORCE;
+          player.jump(force);
+          if (platform.definition.type === "spring") {
+            audio.spring();
+            showToast("SUPER SPRĘŻYNA!", 720);
+            addBurst(k.vec2(player.pos.x, player.pos.y), [COLORS.yellow, COLORS.greenLight, COLORS.white], 16);
+          } else {
+            audio.jump();
+          }
+        }
+
+        function loseLife(reason = "fall") {
+          if (state !== "playing" || invulnerableFor > 0) return;
+          lives -= 1;
+          audio.lifeLost();
+          flashScreen();
+          resetCombo();
+          clearInputs();
+          if (!REDUCE_MOTION) k.shake(11);
+          addBurst(player.pos, [COLORS.red, COLORS.yellow, COLORS.cream], 20);
+
+          if (lives <= 0) {
+            state = "dead";
+            resultIdleFor = RESULT_IDLE_TIME;
+            playerVisual.opacity = 0;
+            dom.controls.hidden = true;
+            dom.gameoverScore.textContent = `Wynik: ${score} pkt • Żappsy: ${zapps} • Wysokość: ${highestFloor}F`;
+            dom.gameover.hidden = false;
+            return;
+          }
+
+          state = "respawning";
+          respawnFor = 0.65;
+          playerVisual.opacity = 0;
+          player.pos = k.vec2(checkpoint.x, checkpoint.y - 4);
+          player.use(k.body(BODY_OPTIONS));
+          player.gravityScale = 0;
+          cameraY = Math.min(GAME_HEIGHT / 2, checkpoint.y - 140);
+          k.camPos(GAME_WIDTH / 2, cameraY);
+          showToast(reason === "can" ? "UWAGA NA PUSZKI!" : "WRACASZ DO CHECKPOINTU", 880);
+        }
+
+        function finishGame() {
+          if (state !== "playing") return;
+          state = "won";
+          resultIdleFor = RESULT_IDLE_TIME;
+          clearInputs();
+          playerVisual.opacity = 0;
+          dom.controls.hidden = true;
+          score += Math.ceil(timeLeft) * 12 + lives * 300;
+          audio.win();
+          addConfetti();
+          dom.winScore.textContent = `Wynik: ${score} pkt • Żappsy: ${zapps} • Czas: ${dom.timer.textContent}`;
+          dom.win.hidden = false;
+        }
+
+        function timeoutGame() {
+          if (state !== "playing") return;
+          lives = 0;
+          state = "dead";
+          resultIdleFor = RESULT_IDLE_TIME;
+          clearInputs();
+          playerVisual.opacity = 0;
+          dom.controls.hidden = true;
+          audio.lifeLost();
+          flashScreen();
+          dom.gameoverScore.textContent = `Koniec czasu • Wynik: ${score} pkt • Wysokość: ${highestFloor}F`;
+          dom.gameover.hidden = false;
+        }
+
+        function restart() {
+          if (state === "restarting") return;
+          state = "restarting";
+          sceneGeneration = null;
+          controller = null;
+          clearInputs();
+          hideOverlays();
+          dom.controls.hidden = true;
+          k.go("tower", { autoStart: true });
+        }
+
+        function returnToStart() {
+          if (state === "restarting") return;
+          state = "restarting";
+          sceneGeneration = null;
+          controller = null;
+          clearInputs();
+          dom.stage.classList.remove("flipped");
+          hideOverlays();
+          dom.controls.hidden = true;
+          k.go("tower", { autoStart: false });
+        }
+
+        player.onCollideUpdate("platform", (platform, collision) => {
+          if (!collision || !collision.isBottom()) return;
+          landOn(platform);
+        });
+
+        player.onCollide("zapps", (token) => {
+          if (state !== "playing" || !token.exists() || collectedTokens.has(token.floor)) return;
+          collectedTokens.add(token.floor);
+          const position = token.pos.clone();
+          zapps += 1;
+          const earned = 100 * Math.max(1, combo);
+          score += earned;
+          audio.collect();
+          addScorePop(position, `Ż +${earned}`, COLORS.greenLight);
+          addBurst(position, [COLORS.greenLight, COLORS.yellow, COLORS.white], 12);
+          k.destroy(token);
+        });
+
+        player.onCollide("fallingCan", (can) => {
+          if (state !== "playing" || invulnerableFor > 0 || can.disabledFor > 0) return;
+          can.disabledFor = 1.1;
+          can.pos.y = can.top;
+          audio.collision();
+          loseLife("can");
+        });
+
+        controller = {
+          stagePointerDown(event) {
+            if (state === "ready") {
+              beginCountdown(event);
+              return;
+            }
+            if (state === "dead" || state === "won") return;
+            if (state !== "playing" || inputLockFor > 0) return;
+            const bounds = dom.stage.getBoundingClientRect();
+            const rawX = event.clientX - bounds.left;
+            const visualX = dom.stage.classList.contains("flipped") ? bounds.width - rawX : rawX;
+            const visualDirection = visualX < bounds.width / 2 ? -1 : 1;
+            activePointers.set(event.pointerId, visualDirection);
+            tapDirection = visualDirection;
+            tapSteerFor = 0.27;
+            const impulse = visualDirectionToWorld(visualDirection) * 145;
+            horizontalSpeed = Math.max(-MAX_RUN_SPEED - 34, Math.min(MAX_RUN_SPEED + 34, horizontalSpeed + impulse));
+          },
+          stagePointerUp(pointerId) {
+            activePointers.delete(pointerId);
+          },
+          setKey(code, isDown) {
+            const direction = (code === "ArrowLeft" || code === "KeyA") ? -1 : (code === "ArrowRight" || code === "KeyD") ? 1 : 0;
+            if (direction) {
+              if (isDown) keyboardDirections.set(code, direction);
+              else keyboardDirections.delete(code);
+              return;
+            }
+            if (isDown && (code === "Space" || code === "Enter")) {
+              if (state === "ready") beginCountdown(null);
+              else if (state === "dead" || state === "won") restart();
+            }
+          },
+          restart
+        };
+
+        k.onUpdate(() => {
+          const delta = safeDelta();
+          elapsed += delta;
+          inputLockFor = Math.max(0, inputLockFor - delta);
+          landingCooldown = Math.max(0, landingCooldown - delta);
+          invulnerableFor = Math.max(0, invulnerableFor - delta);
+          tapSteerFor = Math.max(0, tapSteerFor - delta);
+          player.slipperyFor = Math.max(0, (player.slipperyFor || 0) - delta);
+
+          if (!dom.toast.hidden && performance.now() >= toastUntil) dom.toast.hidden = true;
+
+          if ((state === "dead" || state === "won") && resultIdleFor > 0) {
+            resultIdleFor = Math.max(0, resultIdleFor - delta);
+            if (resultIdleFor === 0) {
+              returnToStart();
+              return;
+            }
+          }
+
+          if (state === "countdown") {
+            countdownFor -= delta;
+            if (countdownFor > 0) {
+              dom.countdownValue.textContent = String(Math.ceil(countdownFor));
+            } else {
+              state = "go";
+              goFor = 0.48;
+              dom.countdownValue.textContent = "START!";
+            }
+          } else if (state === "go") {
+            goFor -= delta;
+            if (goFor <= 0) {
+              state = "playing";
+              dom.countdown.hidden = true;
+              player.jump(BOUNCE_FORCE);
+              audio.jump(0);
+            }
+          } else if (state === "respawning") {
+            respawnFor -= delta;
+            player.pos.x = checkpoint.x;
+            player.pos.y = checkpoint.y - 4;
+            if (respawnFor <= 0) {
+              state = "playing";
+              player.gravityScale = 1;
+              playerVisual.opacity = 1;
+              invulnerableFor = 1.6;
+              inputLockFor = 0.08;
+              dom.controls.hidden = false;
+              player.jump(BOUNCE_FORCE);
+              audio.jump(0);
+            }
+          }
+
+          if (state === "playing") {
+            timeLeft = Math.max(0, timeLeft - delta);
+            if (timeLeft === 0) {
+              timeoutGame();
+              return;
+            }
+
+            if (comboFor > 0) {
+              comboFor = Math.max(0, comboFor - delta);
+              if (comboFor === 0) resetCombo();
+            }
+
+            const direction = currentInputDirection();
+            const difficulty = Math.min(1, highestFloor / LAST_FLOOR);
+            const targetSpeed = direction * (MAX_RUN_SPEED + difficulty * 34);
+            const acceleration = direction ? 1550 : (player.slipperyFor > 0 ? 115 : 1050);
+            if (horizontalSpeed < targetSpeed) horizontalSpeed = Math.min(targetSpeed, horizontalSpeed + acceleration * delta);
+            if (horizontalSpeed > targetSpeed) horizontalSpeed = Math.max(targetSpeed, horizontalSpeed - acceleration * delta);
+            player.move(horizontalSpeed, 0);
+
+            if (player.pos.x < PLAYER_MIN_X) {
+              player.pos.x = PLAYER_MIN_X;
+              horizontalSpeed = Math.abs(horizontalSpeed) * 0.78 + 80;
+              audio.collision();
+              if (!REDUCE_MOTION) k.shake(3);
+            } else if (player.pos.x > PLAYER_MAX_X) {
+              player.pos.x = PLAYER_MAX_X;
+              horizontalSpeed = -Math.abs(horizontalSpeed) * 0.78 - 80;
+              audio.collision();
+              if (!REDUCE_MOTION) k.shake(3);
+            }
+
+            const cameraBottom = cameraY + GAME_HEIGHT / 2;
+            if (player.pos.y > cameraBottom + 145) loseLife("fall");
+
+            const targetCameraY = player.pos.y + 90;
+            if (targetCameraY < cameraY) {
+              cameraY += (targetCameraY - cameraY) * Math.min(1, delta * 5.2);
+            }
+            k.camPos(GAME_WIDTH / 2, cameraY);
+          }
+
+          if (invulnerableFor > 0 && state === "playing") {
+            playerVisual.opacity = Math.floor(invulnerableFor * 14) % 2 === 0 ? 0.28 : 1;
+          } else if (state !== "dead" && state !== "won" && state !== "respawning") {
+            playerVisual.opacity = 1;
+          }
+
+          if (state === "playing") {
+            playerVisual.scale.x = horizontalSpeed < -8 ? -1 : horizontalSpeed > 8 ? 1 : playerVisual.scale.x;
+            playerVisual.angle = player.isJumping() ? -7 * Math.sign(horizontalSpeed || 1) : player.isFalling() ? 7 * Math.sign(horizontalSpeed || 1) : 0;
+          }
+
+          setHud(lives, zapps, score, combo, highestFloor, timeLeft);
+        });
+
+        setHud(lives, zapps, score, combo, highestFloor, timeLeft);
+        k.camPos(GAME_WIDTH / 2, cameraY);
+
+        if (options.autoStart) {
+          k.wait(0, () => beginCountdown(null, true));
+        } else {
+          dom.start.hidden = false;
+        }
+      }
+
+      function addTouchRipple(event) {
+        if (REDUCE_MOTION) return;
+        const bounds = dom.stage.getBoundingClientRect();
+        const rawX = event.clientX - bounds.left;
+        const rawY = event.clientY - bounds.top;
+        const flipped = dom.stage.classList.contains("flipped");
+        const ripple = document.createElement("span");
+        ripple.className = "touch-ripple";
+        ripple.style.left = `${flipped ? bounds.width - rawX : rawX}px`;
+        ripple.style.top = `${flipped ? bounds.height - rawY : rawY}px`;
+        dom.stage.appendChild(ripple);
+        ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+      }
+
+      dom.stage.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        const now = performance.now();
+        if (event.pointerType === "mouse" && now - lastStagePress < 80) return;
+        lastStagePress = now;
+        audio.unlock();
+        addTouchRipple(event);
+        try { dom.stage.setPointerCapture(event.pointerId); } catch (error) { void error; }
+        if (controller) controller.stagePointerDown(event);
+      }, { passive: false });
+
+      ["pointerup", "pointercancel", "lostpointercapture"].forEach((type) => {
+        dom.stage.addEventListener(type, (event) => {
+          event.preventDefault();
+          if (controller) controller.stagePointerUp(event.pointerId);
+        }, { passive: false });
+      });
+
+      function restartFromButton(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        audio.unlock();
+        if (controller) controller.restart();
+      }
+
+      dom.retry.addEventListener("pointerdown", restartFromButton, { passive: false });
+      dom.replay.addEventListener("pointerdown", restartFromButton, { passive: false });
+
+      window.addEventListener("keydown", (event) => {
+        if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space", "Enter"].includes(event.code)) {
+          event.preventDefault();
+          audio.unlock();
+          if (controller) controller.setKey(event.code, true);
+        }
+      }, { passive: false });
+
+      window.addEventListener("keyup", (event) => {
+        if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD"].includes(event.code)) {
+          event.preventDefault();
+          if (controller) controller.setKey(event.code, false);
+        }
+      }, { passive: false });
+
+      document.addEventListener("visibilitychange", () => {
+        k.debug.paused = document.hidden;
+        if (!document.hidden) lastStagePress = performance.now();
+      });
+
+      window.addEventListener("blur", () => { k.debug.paused = true; });
+      window.addEventListener("focus", () => {
+        if (!document.hidden) {
+          k.debug.paused = false;
+          lastStagePress = performance.now();
+        }
+      });
+      window.addEventListener("contextmenu", (event) => event.preventDefault());
+      window.addEventListener("dragstart", (event) => event.preventDefault());
+      window.addEventListener("dblclick", (event) => event.preventDefault(), { passive: false });
+      document.addEventListener("gesturestart", (event) => event.preventDefault(), { passive: false });
+      document.addEventListener("gesturechange", (event) => event.preventDefault(), { passive: false });
+      document.addEventListener("gestureend", (event) => event.preventDefault(), { passive: false });
+
+      k.scene("tower", buildTower);
+
+      Promise.all(assetDefinitions.map(loadImageOrFallback))
+        .then(async (assets) => {
+          await Promise.all(assets.map(({ definition, source }) => k.loadSprite(definition.name, source)));
+          dom.loading.hidden = true;
+          k.go("tower", { autoStart: false });
+        })
+        .catch((error) => {
+          console.error(error);
+          dom.loading.hidden = true;
+          dom.error.hidden = false;
+        });
+    })();
+  </script>
+</body>
+</html>
