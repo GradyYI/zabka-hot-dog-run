@@ -589,6 +589,8 @@
       const MAX_RUN_SPEED = 390;
       const PLAYER_MIN_X = 94;
       const PLAYER_MAX_X = 1186;
+      const BOTTOM_DEATH_FLOOR = 3;
+      const FALL_MARGIN = 70;
       const ROUND_TIME = 180;
       const RESULT_IDLE_TIME = 16;
       const BODY_OPTIONS = { jumpForce: BOUNCE_FORCE, maxVelocity: 1600, stickToPlatform: true };
@@ -958,6 +960,8 @@
 
       function setHud(lives, zapps, score, combo, height, time) {
         dom.lives.innerHTML = [0, 1, 2].map((index) => index < lives ? "<span>♥</span>" : "<span style=\"opacity:.22\">♥</span>").join(" ");
+        dom.lives.setAttribute("aria-label", `${lives} ${lives === 1 ? "życie" : "życia"}`);
+        dom.lives.dataset.count = String(lives);
         dom.zapps.textContent = String(zapps);
         dom.score.textContent = String(score);
         dom.combo.textContent = String(Math.max(1, combo));
@@ -1102,6 +1106,7 @@
         let combo = 1;
         let comboFor = 0;
         let highestFloor = 0;
+        let activePeakFloor = 0;
         let lastNewFloorAt = -10;
         let timeLeft = ROUND_TIME;
         let cameraY = GAME_HEIGHT / 2;
@@ -1399,10 +1404,19 @@
 
         function landOn(platform) {
           if (state !== "playing" || landingCooldown > 0 || !platform.exists()) return;
-          landingCooldown = 0.1;
           const floor = platform.definition.floor;
+          const cameraBottom = cameraY + GAME_HEIGHT / 2;
+          const returnedToBottom = activePeakFloor >= BOTTOM_DEATH_FLOOR && floor === 0;
+          const landedBelowView = platform.pos.y > cameraBottom + 15;
+          if (returnedToBottom || landedBelowView) {
+            loseLife("fall");
+            return;
+          }
+
+          landingCooldown = 0.1;
           const now = elapsed;
           const newFloor = floor > highestFloor;
+          activePeakFloor = Math.max(activePeakFloor, floor);
 
           audio.land();
           addBurst(k.vec2(player.pos.x, player.pos.y + 2), [COLORS.cream, COLORS.yellow], 7);
@@ -1446,8 +1460,10 @@
         }
 
         function loseLife(reason = "fall") {
-          if (state !== "playing" || invulnerableFor > 0) return;
+          if (state !== "playing") return;
+          if (invulnerableFor > 0 && reason !== "fall") return;
           lives -= 1;
+          activePeakFloor = checkpoint.floor;
           audio.lifeLost();
           flashScreen();
           resetCombo();
@@ -1674,7 +1690,9 @@
             }
 
             const cameraBottom = cameraY + GAME_HEIGHT / 2;
-            if (player.pos.y > cameraBottom + 145) loseLife("fall");
+            const bottomLimit = activePeakFloor >= BOTTOM_DEATH_FLOOR ? GROUND_Y - 18 : Number.POSITIVE_INFINITY;
+            const fallLimit = Math.min(cameraBottom + FALL_MARGIN, bottomLimit);
+            if (player.pos.y > fallLimit) loseLife("fall");
 
             const targetCameraY = player.pos.y + 90;
             if (targetCameraY < cameraY) {
